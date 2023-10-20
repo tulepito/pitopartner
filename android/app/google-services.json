@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "706508579691",
+    "project_id": "pito-99f2b",
+    "storage_bucket": "pito-99f2b.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706508579691:android:8735d6ca5825ee7727a22e",
+        "android_client_info": {
+          "package_name": "com.pito.customer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "706508579691-1439tl55i4eegpgenivg6lucog81ocqj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIdgrcoU_sYiNpqXzGFC6XbZp7L3R2HOQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "706508579691-1439tl55i4eegpgenivg6lucog81ocqj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "706508579691-5ss2u6vvjhbh822vbppkh51sa2u5mj2r.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.pitocustomer"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706508579691:android:9510234eece5fe9827a22e",
+        "android_client_info": {
+          "package_name": "com.pito.partner"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "706508579691-1439tl55i4eegpgenivg6lucog81ocqj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIdgrcoU_sYiNpqXzGFC6XbZp7L3R2HOQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "706508579691-1439tl55i4eegpgenivg6lucog81ocqj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "706508579691-5ss2u6vvjhbh822vbppkh51sa2u5mj2r.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.pitocustomer"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
