@@ -6,6 +6,9 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pitopartner/configs.dart';
+import 'package:pitopartner/services/partner_app_channel.dart';
+import 'package:pitopartner/services/shared_preferences.service.dart';
+import 'package:webview_cookie_manager/webview_cookie_manager.dart';
 import 'firebase_options.dart';
 import 'package:pitopartner/screens/home.screen.dart';
 import 'package:pitopartner/services/firebase_messaging.service.dart';
@@ -16,6 +19,7 @@ import 'package:pitopartner/services/sendbird.service.dart';
 import 'package:sendbird_chat_sdk/sendbird_chat_sdk.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 class AppColors {
   static const secondary = Color(0xff292929);
@@ -133,6 +137,7 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
     with SingleTickerProviderStateMixin {
   int selectedIndex = 0;
   bool isLoading = false;
+  final webViewCookieManager = WebviewCookieManager();
 
   void processInAppChatChannelMessage(String message) {
     LoggerService.log(message);
@@ -156,6 +161,18 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
     }
   }
 
+  void processPartnerAppChannelMessage(String message) async {
+    PartnerAppChannelMessage customerAppChannelMessage =
+        PartnerAppChannelMessage.fromJson(jsonDecode(message));
+    String type = customerAppChannelMessage.type;
+    switch (type) {
+      case 'logout':
+        SharedPreferencesService.clearCookies(webViewCookieManager);
+        break;
+      default:
+    }
+  }
+
   Future<void> _launchURL(String url) async {
     if (await canLaunchUrl(Uri.parse(url))) {
       try {
@@ -166,7 +183,7 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
     }
   }
 
-  late WebViewController controller = WebViewController()
+  late WebViewController webviewController = WebViewController()
     ..setUserAgent(
       Platform.isIOS
           ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_1_2 like Mac OS X) AppleWebKit/605.1.15' +
@@ -181,6 +198,10 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
         onMessageReceived: (JavaScriptMessage message) {
       processInAppChatChannelMessage(message.message);
     })
+    ..addJavaScriptChannel('partnerApp',
+        onMessageReceived: (JavaScriptMessage message) {
+      processPartnerAppChannelMessage(message.message);
+    })
     ..setNavigationDelegate(
       NavigationDelegate(
         onProgress: (int progress) {},
@@ -188,11 +209,13 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
           setState(() {
             isLoading = true;
           });
+          SharedPreferencesService.loadSavedCookies(webViewCookieManager);
         },
         onPageFinished: (String url) {
           setState(() {
             isLoading = false;
           });
+          SharedPreferencesService.saveCookies(webViewCookieManager, url);
         },
         onWebResourceError: (WebResourceError error) {},
         onNavigationRequest: (NavigationRequest request) {
@@ -209,13 +232,13 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
   @override
   void initState() {
     super.initState();
-    controller.loadRequest(Uri.parse(AppConfigs.appUrl));
+    webviewController.loadRequest(Uri.parse(AppConfigs.appUrl));
   }
 
   Future<bool> _pop() {
-    return controller.canGoBack().then((value) {
+    return webviewController.canGoBack().then((value) {
       if (value) {
-        controller.goBack();
+        webviewController.goBack();
         return Future.value(false);
       }
 
@@ -230,7 +253,7 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
       child: Scaffold(
         body: Center(
             child: HomeScreen(
-          controller: controller,
+          controller: webviewController,
           isLoading: isLoading,
         )),
       ),
