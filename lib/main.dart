@@ -166,6 +166,10 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
         PartnerAppChannelMessage.fromJson(jsonDecode(message));
     String type = customerAppChannelMessage.type;
     switch (type) {
+      case 'reload_cookies':
+        SharedPreferencesService.saveCookies(
+            webViewCookieManager, AppConfigs.appUrl);
+        break;
       case 'logout':
         SharedPreferencesService.clearCookies(webViewCookieManager);
         break;
