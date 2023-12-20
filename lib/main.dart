@@ -6,11 +6,9 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pitopartner/configs.dart';
-import 'package:pitopartner/services/partner_app_channel.dart';
 import 'package:pitopartner/services/shared_preferences.service.dart';
 import 'package:webview_cookie_manager/webview_cookie_manager.dart';
 import 'firebase_options.dart';
-import 'package:pitopartner/screens/home.screen.dart';
 import 'package:pitopartner/services/firebase_messaging.service.dart';
 import 'package:pitopartner/services/in_app_chat_channel.dart';
 import 'package:pitopartner/services/logger.service.dart';
@@ -18,7 +16,7 @@ import 'package:pitopartner/services/notification.service.dart';
 import 'package:pitopartner/services/sendbird.service.dart';
 import 'package:sendbird_chat_sdk/sendbird_chat_sdk.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter/foundation.dart';
 
 class AppColors {
@@ -134,10 +132,35 @@ class AppWithNavigationBar extends StatefulWidget {
 }
 
 class _AppWithNavigationBarState extends State<AppWithNavigationBar>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int selectedIndex = 0;
   bool isLoading = false;
   final webViewCookieManager = WebviewCookieManager();
+  InAppWebViewController? iawvController;
+  late PullToRefreshController pullToRefreshController;
+  final iawvKey = GlobalKey();
+
+  final InAppWebViewGroupOptions iawvGroupOptions = InAppWebViewGroupOptions(
+      crossPlatform: InAppWebViewOptions(
+          incognito: false,
+          cacheEnabled: true,
+          useShouldOverrideUrlLoading: true,
+          mediaPlaybackRequiresUserGesture: false,
+          supportZoom: false,
+          userAgent: Platform.isIOS
+              ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_1_2 like Mac OS X) AppleWebKit/605.1.15'
+                  ' (KHTML, like Gecko) Version/13.0.1 Mobile/15E148 Safari/604.1'
+              : 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) '
+                  'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36',
+          javaScriptEnabled: true),
+      android: AndroidInAppWebViewOptions(
+        useHybridComposition: true,
+        domStorageEnabled: true,
+      ),
+      ios: IOSInAppWebViewOptions(
+        allowsInlineMediaPlayback: true,
+        sharedCookiesEnabled: true,
+      ));
 
   void processInAppChatChannelMessage(String message) {
     LoggerService.log(message);
@@ -161,23 +184,161 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
     }
   }
 
-  void processPartnerAppChannelMessage(String message) async {
-    PartnerAppChannelMessage customerAppChannelMessage =
-        PartnerAppChannelMessage.fromJson(jsonDecode(message));
-    String type = customerAppChannelMessage.type;
-    switch (type) {
-      case 'reload_cookies':
-        SharedPreferencesService.saveCookies(
-            webViewCookieManager, AppConfigs.appUrl);
-        break;
-      case 'logout':
-        SharedPreferencesService.clearCookies(webViewCookieManager);
-        break;
-      default:
+  // late WebViewController webviewController = WebViewController()
+  //   ..setUserAgent(
+  //     Platform.isIOS
+  //         ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_1_2 like Mac OS X) AppleWebKit/605.1.15' +
+  //             ' (KHTML, like Gecko) Version/13.0.1 Mobile/15E148 Safari/604.1'
+  //         : 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) ' +
+  //             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36',
+  //   )
+  //   ..setJavaScriptMode(JavaScriptMode.unrestricted)
+  //   ..setBackgroundColor(const Color(0x00000000))
+  //   ..enableZoom(false)
+  //   ..addJavaScriptChannel('inAppChat',
+  //       onMessageReceived: (JavaScriptMessage message) {
+  //     processInAppChatChannelMessage(message.message);
+  //   })
+  //   ..addJavaScriptChannel('partnerApp',
+  //       onMessageReceived: (JavaScriptMessage message) {
+  //     processPartnerAppChannelMessage(message.message);
+  //   })
+  //   ..setNavigationDelegate(
+  //     NavigationDelegate(
+  //       onProgress: (int progress) {},
+  //       onPageStarted: (String url) {
+  //         setState(() {
+  //           isLoading = true;
+  //         });
+  //         SharedPreferencesService.loadSavedCookies(webViewCookieManager);
+  //       },
+  //       onPageFinished: (String url) {
+  //         setState(() {
+  //           isLoading = false;
+  //         });
+  //         SharedPreferencesService.saveCookies(webViewCookieManager, url);
+  //       },
+  //       onWebResourceError: (WebResourceError error) {},
+  //       onNavigationRequest: (NavigationRequest request) {
+  //         if (request.url.startsWith('https://pito.vn')) {
+  //           _launchURL(request.url);
+  //           return NavigationDecision.prevent;
+  //         }
+
+  //         return NavigationDecision.navigate;
+  //       },
+  //     ),
+  //   );
+
+  void loadUrl(String url) {
+    if (iawvController != null) {
+      iawvController!.loadUrl(
+          urlRequest: URLRequest(
+              url: Uri.parse(
+        url,
+      )));
     }
   }
 
-  Future<void> _launchURL(String url) async {
+  void setUpPullToRefreshController() {
+    pullToRefreshController = PullToRefreshController(
+      options: PullToRefreshOptions(
+        color: Colors.red,
+      ),
+      onRefresh: () async {
+        if (Platform.isAndroid) {
+          iawvController?.reload();
+        } else if (Platform.isIOS) {
+          iawvController?.loadUrl(
+              urlRequest: URLRequest(url: await iawvController?.getUrl()));
+        }
+      },
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    setUpPullToRefreshController();
+
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  Future<void> saveLocalStorageIntoSharePreference() async {
+    String jsonString = await iawvController!.evaluateJavascript(
+      source: """
+(function() {
+  var allKeys = Object.keys(localStorage);
+  var allValues = allKeys.map(function(key) {
+    return localStorage.getItem(key);
+  });
+  return JSON.stringify({keys: allKeys, values: allValues});
+})()
+""",
+    );
+
+    Map<String, dynamic> localStorageData = jsonDecode(jsonString);
+    SharedPreferencesService.saveLocalStorage(localStorageData);
+  }
+
+  Future<void> saveCookiesIntoSharePreference() async {
+    CookieManager cookieManager = CookieManager.instance();
+    List<Cookie> cookies = await cookieManager.getCookies(
+        url: Uri.parse(AppConfigs.appUrl),
+        iosBelow11WebViewController: iawvController);
+    SharedPreferencesService.saveCookies(cookies);
+    printTokenInCookies(cookies);
+  }
+
+  void callbackOnWebviewDestroy() async {
+    await saveCookiesIntoSharePreference();
+    await saveLocalStorageIntoSharePreference();
+  }
+
+  void printTokenInCookies(List<Cookie> cookies) {
+    try {
+      var token = cookies.firstWhere((element) => element.name == 'token');
+      LoggerService.log('TELE: $token');
+    } catch (e) {
+      LoggerService.log('Token is not found in cookies');
+    }
+  }
+
+  void viewSavedCookies() async {
+    List<Cookie> cookies = await SharedPreferencesService.getCookies();
+    printTokenInCookies(cookies);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.inactive:
+        callbackOnWebviewDestroy();
+        break;
+      case AppLifecycleState.resumed:
+        viewSavedCookies();
+        break;
+    }
+  }
+
+  // Future<bool> _pop() {
+  //   return webviewController.canGoBack().then((value) {
+  //     if (value) {
+  //       webviewController.goBack();
+  //       return Future.value(false);
+  //     }
+
+  //     return Future.value(true);
+  //   });
+  // }
+
+  Future<void> launchExternalURL(String url) async {
     if (await canLaunchUrl(Uri.parse(url))) {
       try {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -187,79 +348,124 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
     }
   }
 
-  late WebViewController webviewController = WebViewController()
-    ..setUserAgent(
-      Platform.isIOS
-          ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_1_2 like Mac OS X) AppleWebKit/605.1.15' +
-              ' (KHTML, like Gecko) Version/13.0.1 Mobile/15E148 Safari/604.1'
-          : 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) ' +
-              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36',
-    )
-    ..setJavaScriptMode(JavaScriptMode.unrestricted)
-    ..setBackgroundColor(const Color(0x00000000))
-    ..enableZoom(false)
-    ..addJavaScriptChannel('inAppChat',
-        onMessageReceived: (JavaScriptMessage message) {
-      processInAppChatChannelMessage(message.message);
-    })
-    ..addJavaScriptChannel('partnerApp',
-        onMessageReceived: (JavaScriptMessage message) {
-      processPartnerAppChannelMessage(message.message);
-    })
-    ..setNavigationDelegate(
-      NavigationDelegate(
-        onProgress: (int progress) {},
-        onPageStarted: (String url) {
-          setState(() {
-            isLoading = true;
-          });
-          SharedPreferencesService.loadSavedCookies(webViewCookieManager);
-        },
-        onPageFinished: (String url) {
-          setState(() {
-            isLoading = false;
-          });
-          SharedPreferencesService.saveCookies(webViewCookieManager, url);
-        },
-        onWebResourceError: (WebResourceError error) {},
-        onNavigationRequest: (NavigationRequest request) {
-          if (request.url.startsWith('https://pito.vn')) {
-            _launchURL(request.url);
-            return NavigationDecision.prevent;
-          }
-
-          return NavigationDecision.navigate;
-        },
-      ),
-    );
-
-  @override
-  void initState() {
-    super.initState();
-    webviewController.loadRequest(Uri.parse(AppConfigs.appUrl));
+  Future<void> viewCookies() async {
+    var iavwCookies = await iawvController!.evaluateJavascript(source: """
+(function() {
+  var allCookies = document.cookie;
+  return JSON.stringify({cookies: allCookies});
+})()
+""");
+    LoggerService.log('Check client token onWebViewCreated : $iavwCookies');
   }
 
-  Future<bool> _pop() {
-    return webviewController.canGoBack().then((value) {
-      if (value) {
-        webviewController.goBack();
-        return Future.value(false);
-      }
+  Future<void> initLocalStorage() async {
+    Map<String, dynamic>? localStorageData =
+        await SharedPreferencesService.getLocalStorage();
 
-      return Future.value(true);
-    });
+    if (localStorageData != null && localStorageData.isNotEmpty) {
+      await iawvController!.evaluateJavascript(
+        source: """
+                      (function() {
+                        var localStorageData = ${jsonEncode(localStorageData)};
+          Object.keys(localStorageData).forEach(function(key) {
+            localStorage.setItem(key, localStorageData[key]);
+          });
+        })()
+        """,
+      );
+    }
+  }
+
+  Future<void> removeAllRemainingCookies() async {
+    CookieManager cookieManager = CookieManager.instance();
+    await cookieManager.deleteAllCookies();
+  }
+
+  void initCookieToInAppWebview() async {
+    List<Cookie> cookies = await SharedPreferencesService.getCookies();
+    printTokenInCookies(cookies);
+
+    if (cookies.isNotEmpty) {
+      CookieManager cookieManager = CookieManager.instance();
+      for (var cookie in cookies) {
+        cookieManager.setCookie(
+          url: Uri.parse(AppConfigs.appUrl),
+          name: cookie.name,
+          value: cookie.value,
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () => _pop(),
+    return PopScope(
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+
+        if (await iawvController!.canGoBack()) {
+          iawvController!.goBack();
+        }
+      },
       child: Scaffold(
-        body: Center(
-            child: HomeScreen(
-          controller: webviewController,
-          isLoading: isLoading,
-        )),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              InAppWebView(
+                key: iawvKey,
+                initialUrlRequest: URLRequest(
+                    url: Uri.parse(
+                  AppConfigs.appUrl,
+                )),
+                initialOptions: iawvGroupOptions,
+                pullToRefreshController: pullToRefreshController,
+                onWebViewCreated: (controller) async {
+                  iawvController = controller;
+
+                  await initLocalStorage();
+                  await removeAllRemainingCookies();
+                  initCookieToInAppWebview();
+                  await viewCookies();
+                },
+                onLoadStart: (controller, url) async {
+                  setState(() {
+                    isLoading = true;
+                  });
+                },
+                androidOnPermissionRequest:
+                    (controller, origin, resources) async {
+                  return PermissionRequestResponse(
+                      resources: resources,
+                      action: PermissionRequestResponseAction.GRANT);
+                },
+                shouldOverrideUrlLoading: (controller, navigationAction) async {
+                  return NavigationActionPolicy.ALLOW;
+                },
+                onLoadStop: (controller, url) async {
+                  pullToRefreshController.endRefreshing();
+                },
+                onLoadError: (controller, url, code, message) {
+                  pullToRefreshController.endRefreshing();
+                },
+                onProgressChanged: (controller, progress) {
+                  if (progress == 100) {
+                    pullToRefreshController.endRefreshing();
+                    setState(() {
+                      isLoading = false;
+                    });
+                  }
+                },
+                onUpdateVisitedHistory: (controller, url, androidIsReload) {},
+                onConsoleMessage: (controller, consoleMessage) {},
+              ),
+              isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : const Stack(),
+            ],
+          ),
+        ),
       ),
     );
   }
