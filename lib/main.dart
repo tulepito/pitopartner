@@ -145,6 +145,8 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
           useShouldOverrideUrlLoading: true,
           mediaPlaybackRequiresUserGesture: false,
           supportZoom: false,
+          verticalScrollBarEnabled: false,
+          horizontalScrollBarEnabled: false,
           userAgent: Platform.isIOS
               ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_1_2 like Mac OS X) AppleWebKit/605.1.15'
                   ' (KHTML, like Gecko) Version/13.0.1 Mobile/15E148 Safari/604.1'
@@ -156,9 +158,12 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
         domStorageEnabled: true,
       ),
       ios: IOSInAppWebViewOptions(
-        allowsInlineMediaPlayback: true,
-        sharedCookiesEnabled: true,
-      ));
+          allowsInlineMediaPlayback: true,
+          sharedCookiesEnabled: true,
+          alwaysBounceHorizontal: false,
+          allowsLinkPreview: false,
+          alwaysBounceVertical: false,
+          disableLongPressContextMenuOnLinks: true));
 
   void loadUrl(String url) {
     if (iawvController != null) {
