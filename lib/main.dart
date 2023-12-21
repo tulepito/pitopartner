@@ -10,10 +10,8 @@ import 'package:pitopartner/services/shared_preferences.service.dart';
 import 'package:webview_cookie_manager/webview_cookie_manager.dart';
 import 'firebase_options.dart';
 import 'package:pitopartner/services/firebase_messaging.service.dart';
-import 'package:pitopartner/services/in_app_chat_channel.dart';
 import 'package:pitopartner/services/logger.service.dart';
 import 'package:pitopartner/services/notification.service.dart';
-import 'package:pitopartner/services/sendbird.service.dart';
 import 'package:sendbird_chat_sdk/sendbird_chat_sdk.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -162,74 +160,6 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
         sharedCookiesEnabled: true,
       ));
 
-  void processInAppChatChannelMessage(String message) {
-    LoggerService.log(message);
-    InAppChatChannelMessage inAppChatChannelMessage =
-        InAppChatChannelMessage.fromJson(jsonDecode(message));
-    String type = inAppChatChannelMessage.type;
-
-    if ((type == 'login' || type == 'logout')) {
-      String? userId = inAppChatChannelMessage.data?.userId;
-
-      switch (type) {
-        case 'login':
-          SendbirdService.setPushTokenForUser(userId!);
-          break;
-        case 'logout':
-          SendbirdService.removePushTokenForUser();
-          break;
-
-        default:
-      }
-    }
-  }
-
-  // late WebViewController webviewController = WebViewController()
-  //   ..setUserAgent(
-  //     Platform.isIOS
-  //         ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_1_2 like Mac OS X) AppleWebKit/605.1.15' +
-  //             ' (KHTML, like Gecko) Version/13.0.1 Mobile/15E148 Safari/604.1'
-  //         : 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) ' +
-  //             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36',
-  //   )
-  //   ..setJavaScriptMode(JavaScriptMode.unrestricted)
-  //   ..setBackgroundColor(const Color(0x00000000))
-  //   ..enableZoom(false)
-  //   ..addJavaScriptChannel('inAppChat',
-  //       onMessageReceived: (JavaScriptMessage message) {
-  //     processInAppChatChannelMessage(message.message);
-  //   })
-  //   ..addJavaScriptChannel('partnerApp',
-  //       onMessageReceived: (JavaScriptMessage message) {
-  //     processPartnerAppChannelMessage(message.message);
-  //   })
-  //   ..setNavigationDelegate(
-  //     NavigationDelegate(
-  //       onProgress: (int progress) {},
-  //       onPageStarted: (String url) {
-  //         setState(() {
-  //           isLoading = true;
-  //         });
-  //         SharedPreferencesService.loadSavedCookies(webViewCookieManager);
-  //       },
-  //       onPageFinished: (String url) {
-  //         setState(() {
-  //           isLoading = false;
-  //         });
-  //         SharedPreferencesService.saveCookies(webViewCookieManager, url);
-  //       },
-  //       onWebResourceError: (WebResourceError error) {},
-  //       onNavigationRequest: (NavigationRequest request) {
-  //         if (request.url.startsWith('https://pito.vn')) {
-  //           _launchURL(request.url);
-  //           return NavigationDecision.prevent;
-  //         }
-
-  //         return NavigationDecision.navigate;
-  //       },
-  //     ),
-  //   );
-
   void loadUrl(String url) {
     if (iawvController != null) {
       iawvController!.loadUrl(
@@ -327,17 +257,6 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
     }
   }
 
-  // Future<bool> _pop() {
-  //   return webviewController.canGoBack().then((value) {
-  //     if (value) {
-  //       webviewController.goBack();
-  //       return Future.value(false);
-  //     }
-
-  //     return Future.value(true);
-  //   });
-  // }
-
   Future<void> launchExternalURL(String url) async {
     if (await canLaunchUrl(Uri.parse(url))) {
       try {
@@ -408,6 +327,7 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
         }
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         body: SafeArea(
           child: Stack(
             children: [
