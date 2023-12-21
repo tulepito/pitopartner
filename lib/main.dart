@@ -324,6 +324,7 @@ class _AppWithNavigationBarState extends State<AppWithNavigationBar>
   @override
   Widget build(BuildContext context) {
     return PopScope(
+      canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
 
